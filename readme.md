@@ -1,11 +1,17 @@
+step 0-(run one by one in terminal, if error occur run that command again)
+
+python -m venv venv
+venv\Scripts\activate
+
+#path may start from (venv)
+
+
 step 1-
-pip install requirements.txt
+pip install -r requirements.txt
+
 
 step 2-
-load venv
+make .env file (just like .env.example) and replace `{API_KEY_GOOGLE_AI_STUDIO}` with actual apikey
 
 step 3-
-make .env file (just like .env.example) and replace API_KEY_GOOGLE_AI_STUDIO with actual apikey
-
-step 4-
 uvicorn main:app --reload
