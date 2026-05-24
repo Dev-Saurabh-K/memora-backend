@@ -2,14 +2,14 @@ from pydantic import BaseModel
 
 class UserCreate(BaseModel):
     username: str
-    email: str
+    emailid: str
     password: str
     studyingAt: str
 
 class UserResponse(BaseModel):
     id: int
     username: str
-    email: str
+    emailid: str
     password: str
     studyingAt: str
 
