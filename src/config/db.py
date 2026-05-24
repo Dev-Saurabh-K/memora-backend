@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer,String
+from sqlalchemy import create_engine, Column, Integer,String, ForeignKey, DateTime
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -16,7 +16,25 @@ class User(Base):
     studyingAt = Column(String)
     # created_at 
 
+
+
+class Chat(Base):
+    __tablename__="chats"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    usermessage = Column(String)
+    modelmessage = Column(String)
+    created_at = Column(DateTime)
+    
 Base.metadata.create_all(bind=engine)
+
+def get_chatdb():
+    chatdb = sessionLocal()
+    try:
+        yield chatdb
+    finally:
+        chatdb.close()
+
 
 def get_db():
     db = sessionLocal()
