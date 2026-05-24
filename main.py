@@ -1,5 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 
+from fastapi.middleware.cors import CORSMiddleware
+
 from sqlalchemy.orm import Session
 from src.Services.ChatService import chat
 from src.config.db import get_db, User, Chat, get_chatdb
@@ -14,6 +16,15 @@ from datetime import datetime
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # For development
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+
+)
+
 @app.get("/")
 def home():
 
@@ -21,7 +32,7 @@ def home():
     print(chat(query))
     return {"message": "Hello World"}
 
-@app.get("api/users/", response_model=list[UserResponse])
+@app.get("/api/users/", response_model=list[UserResponse])
 def get_users(db: Session = Depends(get_db)):
     """Get all users"""
     return db.query(User).all()
