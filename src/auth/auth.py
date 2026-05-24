@@ -3,9 +3,13 @@ import jwt
 from pwdlib import PasswordHash
 from fastapi import HTTPException, status
 
+from dotenv import load_dotenv
+import os
 
-SECRET_KEY = "secret-key"
-ALGORITHM = "HS256"
+load_dotenv
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = 600
 
 
