@@ -18,3 +18,7 @@ make .env file (just like .env.example) and replace `{API_KEY_GOOGLE_AI_STUDIO}`
 
 step 3-
 uvicorn main:app --reload
+
+
+step 4-
+http://localhost:8000/docs
