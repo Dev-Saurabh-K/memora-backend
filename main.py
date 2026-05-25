@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -9,6 +9,7 @@ from src.config.db import get_db, User, Chat, get_chatdb
 from src.schemas.User import UserCreate, UserResponse
 from src.schemas.Chat import ChatMessage, ChatMessageResponse, RetrieveChatResponse
 from src.auth.auth import hash_password, decode_access_token, create_access_token, verify_password
+from src.Services.imagekitsetup import imagekit
 from typing import List
 
 
@@ -99,6 +100,24 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     access_token = create_access_token(data={"sub":user.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
+
+#upload file
+@app.post("/api/upload/file")
+async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
+
+    file_bytes =await file.read()
+    response = imagekit.files.upload(
+        file=file_bytes,
+        file_name=file.filename
+    )
+
+    return response
+
+    
+
+
+
+
 @app.get("/api/users/", response_model=list[UserResponse])
 def get_users(db: Session = Depends(get_db)):
     """Get all users"""
@@ -132,6 +151,8 @@ def send_message(query: ChatMessage, chatdb: Session = Depends(get_chatdb)) -> C
     )
 
     return chat_response
+
+
 
 @app.get("/api/chat/retrive")
 def retrive_message(chatdb: Session = Depends(get_chatdb)) -> List[RetrieveChatResponse]:
