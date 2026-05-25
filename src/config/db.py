@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer,String
+from sqlalchemy import create_engine, Column, Integer,String,Text
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -15,6 +15,34 @@ class User(Base):
     password = Column(String, nullable=False)
     studyingAt = Column(String)
     # created_at 
+
+class QuizModel(Base):
+    """Quiz table"""
+    __tablename__ = "quizzes"
+    
+    user_id = Column(Integer, primary_key=True)
+    topic = Column(String, index=True)
+    difficulty = Column(String, default="medium")
+ 
+class QuestionModel(Base):
+    __tablename__ = "questions"
+    
+    user_id = Column(Integer, primary_key=True)
+    quiz_id = Column(Integer)
+    question_text = Column(Text)
+    option_a = Column(String)
+    option_b = Column(String)
+    option_c = Column(String)
+    option_d = Column(String)
+    correct_answer = Column(String)
+ 
+class AnswerModel(Base):
+    __tablename__ = "answers"
+    
+    user_id = Column(Integer, primary_key=True)
+    quiz_id = Column(Integer)
+    question_id = Column(Integer)
+    user_answer = Column(String)
 
 Base.metadata.create_all(bind=engine)
 
