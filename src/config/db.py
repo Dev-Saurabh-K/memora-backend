@@ -1,10 +1,20 @@
-from sqlalchemy import create_engine, Column, Integer,String, ForeignKey, DateTime
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Text
+from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
 
-engine = create_engine("sqlite:///users.db", connect_args={"check_same_thread": False})
-sessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+engine = create_engine(
+    "sqlite:///users.db",
+    connect_args={"check_same_thread": False}
+)
+
+sessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine
+)
+
 Base = declarative_base()
+
 
 class User(Base):
     __tablename__ = "users"
@@ -14,7 +24,47 @@ class User(Base):
     emailid = Column(String, nullable=False, unique=True)
     password = Column(String, nullable=False)
     studyingAt = Column(String)
-    # created_at 
+
+
+class QuizModel(Base):
+    __tablename__ = "quizzes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    topic = Column(String, index=True)
+    difficulty = Column(String, default="medium")
+
+class QuestionModel(Base):
+    __tablename__ = "questions"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    quiz_id = Column(Integer, ForeignKey("quizzes.id"))
+
+    question_text = Column(Text)
+
+    option_a = Column(String)
+    option_b = Column(String)
+    option_c = Column(String)
+    option_d = Column(String)
+
+    correct_answer = Column(String)
+
+
+class AnswerModel(Base):
+    __tablename__ = "answers"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(Integer, ForeignKey("users.id"))
+
+    quiz_id = Column(Integer, ForeignKey("quizzes.id"))
+
+    question_id = Column(Integer, ForeignKey("questions.id"))
+
+    user_answer = Column(String)
+
+
 
 
 
@@ -38,7 +88,9 @@ def get_chatdb():
 
 def get_db():
     db = sessionLocal()
+
     try:
         yield db
+
     finally:
         db.close()
