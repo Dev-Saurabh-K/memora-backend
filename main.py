@@ -5,10 +5,14 @@ from src.Services.ChatService import chat
 from src.config.db import get_db, User
 from src.schemas.User import UserCreate, UserResponse
 
-from src.config import db
-from src.schemas.question_schemas import Question,Quiz,QuizCreate
+from src.schemas.question_schemas import QuestionResponse,SubmitAnswer,ResultResponse,QuizCreate
 from src.Analysis.Quiz import get_quiz
+import json
 
+from src.config.db import (
+    QuizModel,
+    QuestionModel
+)
 
 
 
@@ -28,47 +32,86 @@ def get_users(db: Session = Depends(get_db)):
 
 @app.post("/users/quiz_generate")
 def quiz(
-    topic: str,
-    toughness: str,
     quiz_data: QuizCreate,
     db: Session = Depends(get_db)
 ):
     try:
+
         query = f"""
-        Create a 10 highly precise quiz based on the following parameters:
+        Create a 10 highly precise quiz based on:
+
         Topic: {quiz_data.topic}
-        Toughness Level: {quiz_data.difficulty}
+        Difficulty: {quiz_data.difficulty}
 
-        Ensure that the questions legitimately test the criteria of 
-        {quiz_data.difficulty} level.
+        IMPORTANT:
+        - Return ONLY valid JSON
+        - No markdown
+        - No explanation
+        - No extra text
 
-        Each question must target a very specific sub-topic or nuance 
-        within the primary theme.
-
-        Provide realistic distractor choices for options.
-
-        Give response in purely JSON format.
-        Give correct option in A,B,C & D.
+        JSON FORMAT:
+        [
+          {{
+            "question": "Question here",
+            "options": {{
+              "A": "Option A",
+              "B": "Option B",
+              "C": "Option C",
+              "D": "Option D"
+            }},
+            "correct_answer": "A"
+          }}
+        ]
         """
 
         content = get_quiz(query)
 
-        result = db.QuizModel(
+        quiz_json = json.loads(content)
+
+        new_quiz = QuizModel(
+            user_id=1, 
             topic=quiz_data.topic,
             difficulty=quiz_data.difficulty
         )
 
-        db.add(result)
+        db.add(new_quiz)
         db.commit()
-        db.refresh(result)
+        db.refresh(new_quiz)
+
+        for item in quiz_json:
+
+            question = QuestionModel(
+                quiz_id=new_quiz.id,
+
+                question_text=item["question"],
+
+                option_a=item["options"]["A"],
+                option_b=item["options"]["B"],
+                option_c=item["options"]["C"],
+                option_d=item["options"]["D"],
+
+                correct_answer=item["correct_answer"]
+            )
+
+            db.add(question)
+
+        db.commit()
 
         return {
-            "quiz": content,
-            "saved_data": result
+            "quiz_id": new_quiz.id,
+            "questions": quiz_json
         }
 
-    except Exception as e:
+    except json.JSONDecodeError:
+
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Gemini Generation Failure"
+            status_code=500,
+            detail="AI did not return valid JSON"
+        )
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
         )
