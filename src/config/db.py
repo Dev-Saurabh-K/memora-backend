@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Text
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -66,7 +66,25 @@ class AnswerModel(Base):
 
 
 
+
+
+class Chat(Base):
+    __tablename__="chats"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    usermessage = Column(String)
+    modelmessage = Column(String)
+    created_at = Column(DateTime)
+    
 Base.metadata.create_all(bind=engine)
+
+def get_chatdb():
+    chatdb = sessionLocal()
+    try:
+        yield chatdb
+    finally:
+        chatdb.close()
+
 
 def get_db():
     db = sessionLocal()
