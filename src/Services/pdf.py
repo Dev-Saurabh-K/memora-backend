@@ -3,8 +3,13 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 from dotenv import load_dotenv
+# from GeneratePlan import generateTopic
 
 load_dotenv()
+
+# loader = PyPDFLoader("data/syllabus.pdf")
+# docs = loader.load()
+# print(generateTopic(docs))
 # def store_vector():
 #     loader = PyPDFLoader("data/syllabus.pdf")
 #     docs = loader.load()
@@ -31,19 +36,14 @@ load_dotenv()
 
 
 
-embeddings = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
 
-vectorstore = Chroma(persist_directory="./db", embedding_function=embeddings)
+def getRagOverVectorDb(query: str):
+    embeddings = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
+    vectorstore = Chroma(persist_directory="./db", embedding_function=embeddings)
+    results = vectorstore.similarity_search(query=query, k=3)
+    # print(results[0].page_content)
+    return results
 
-query = "what is syllabus of mathematics semester 1 for computerscience?"
+# print(getRagOverVectorDb("syllabus topic of mathematics semester 1"))
 
-results = vectorstore.similarity_search(query=query, k=3)
 
-print(results[0].page_content)
-
-# print(vectorstore)
-# print(chunks[0].page_content)
-# print(docs)
-
-# for doc in docs:
-#     print(doc.page_content[:500])

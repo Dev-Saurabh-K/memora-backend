@@ -8,6 +8,9 @@ from src.Services.ChatService import chat
 from src.config.db import get_db, User, Chat, get_chatdb
 from src.schemas.User import UserCreate, UserResponse
 from src.schemas.Chat import ChatMessage, ChatMessageResponse, RetrieveChatResponse
+from src.Services.microtasks import extractTextFromPDF
+from src.Services.GeneratePlan import generateTopic
+from src.Services.NotesGenerator import notes_generator
 from src.auth.auth import hash_password, decode_access_token, create_access_token, verify_password
 from src.Services.imagekitsetup import imagekit
 from typing import List
@@ -107,6 +110,26 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     # create jwt token
     access_token = create_access_token(data={"sub":user.username})
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.post("/api/generate/syllabus")
+async def get_syllabus_plan(file:UploadFile = File(...), db: Session= Depends(get_db)):
+    file_bytes = await file.read()
+    plan = generateTopic((extractTextFromPDF(file_bytes)))
+    return {"plan":plan}
+
+@app.post("/api/generate/addtopic")
+async def get_topic_plan(topics: str, db:Session= Depends(get_db)):
+    plan = generateTopic(topics)
+    return {"plan":plan}
+
+
+###############################################################################
+#must change response and code if face problem
+@app.post("/api/generate/notes")     
+def get_notes(topic: str, subject: str, db:Session= Depends(get_db)):
+    return notes_generator(topic=topic, subject=subject)
+################################################################################
 
 
 #upload file
