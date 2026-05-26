@@ -19,13 +19,14 @@ from typing import List
 
 
 from datetime import datetime
-from src.schemas.question_schemas import QuestionResponse,SubmitAnswer,ResultResponse,QuizCreate
+from src.schemas.question_schemas import QuizSubmission,ResultResponse,QuizCreate
 from src.Analysis.Quiz import get_quiz
 import json
 
 from src.config.db import (
     QuizModel,
-    QuestionModel
+    QuestionModel,
+    AnswerModel
 )
 
 
@@ -308,3 +309,61 @@ def quiz(
             status_code=500,
             detail=str(e)
         )
+    
+@app.post("/users/quiz_submit")
+def submit_quiz(submission: QuizSubmission, db: Session = Depends(get_db)):
+    try:
+        score = 0
+        results_details = []
+
+        for item in submission.answers:
+            
+            db_question = db.query(QuestionModel).filter(
+                QuestionModel.id == item.question_id,
+                QuestionModel.quiz_id == submission.quiz_id
+            ).first()
+
+            if not db_question:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Question ID {item.question_id} not found for this quiz."
+                )
+
+            is_correct = item.user_answer.strip().upper() == db_question.correct_answer.strip().upper()
+            if is_correct:
+                score += 1
+
+            user_answer_record = AnswerModel(
+                user_id=submission.user_id,
+                quiz_id=submission.quiz_id,
+                question_id=item.question_id,
+                user_answer=item.user_answer
+            )
+            db.add(user_answer_record)
+
+            results_details.append({
+                "question_id": db_question.id,
+                "question_text": db_question.question_text,
+                "options": {
+                    "A": db_question.option_a,
+                    "B": db_question.option_b,
+                    "C": db_question.option_c,
+                    "D": db_question.option_d
+                },
+                "user_answer": item.user_answer,
+                "correct_answer": db_question.correct_answer,
+                "is_correct": is_correct
+            })
+        db.commit()
+
+        return {
+            "quiz_id": submission.quiz_id,
+            "user_id": submission.user_id,
+            "score": score,
+            "total_questions": len(submission.answers),
+            "results": results_details
+        }
+
+    except Exception as e:
+        db.rollback() 
+        raise HTTPException(status_code=500, detail=str(e))
