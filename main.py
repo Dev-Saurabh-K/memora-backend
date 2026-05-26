@@ -11,6 +11,8 @@ from src.schemas.Chat import ChatMessage, ChatMessageResponse, RetrieveChatRespo
 from src.Services.microtasks import extractTextFromPDF
 from src.Services.GeneratePlan import generateTopic
 from src.Services.NotesGenerator import notes_generator
+from src.Services.SubNotesGenerator import generate_sub_notes
+from src.Services.GetImage import get_image_url
 from src.auth.auth import hash_password, decode_access_token, create_access_token, verify_password
 from src.Services.imagekitsetup import imagekit
 from typing import List
@@ -130,6 +132,22 @@ async def get_topic_plan(topics: str, db:Session= Depends(get_db)):
 def get_notes(topic: str, subject: str, db:Session= Depends(get_db)):
     return notes_generator(topic=topic, subject=subject)
 ################################################################################
+
+
+@app.post("/api/generate/subnotes")
+def get_subnotes(keyword: str, context: str):
+
+    return generate_sub_notes(keyword, context)
+
+@app.post("/api/generate/image")
+def get_image(topic: str):
+    url=get_image_url(topic)
+    return (
+        {
+            "imageurl":url
+        }
+    )
+
 
 
 #upload file
