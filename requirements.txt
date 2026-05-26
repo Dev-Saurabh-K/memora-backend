@@ -37,6 +37,7 @@ httpx==0.28.1
 httpx-sse==0.4.3
 huggingface_hub==1.16.1
 idna==3.16
+imagekitio==5.5.1
 importlib_resources==7.1.0
 jsonpatch==1.33
 jsonpointer==3.1.1
@@ -86,6 +87,7 @@ pydantic-settings==2.14.1
 pydantic_core==2.46.4
 Pygments==2.20.0
 PyJWT==2.13.0
+pypdf==6.12.1
 PyPika==0.51.1
 pyproject_hooks==1.2.0
 python-dateutil==2.9.0.post0
