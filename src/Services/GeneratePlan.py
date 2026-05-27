@@ -43,6 +43,8 @@ chain = prompt | structured_llm
 def generateTopic(input: str) -> List[TopicCard]:
     return chain.invoke({"unstructured_input": input})
 
+# print(generateTopic("half adder circuit"))
+
 
 # print(generateTopic(getRagOverVectorDb("physics 1st year syllabus")[0].page_content))
 

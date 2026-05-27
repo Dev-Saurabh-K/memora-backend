@@ -36,14 +36,15 @@ prompt = ChatPromptTemplate.from_messages([
 
 
 llm = ChatGoogleGenerativeAI(model = "gemini-2.5-flash-lite", temperature = 0)
-structured_llm = llm.with_structured_output(NotesStruct)
+structured_llm = llm.with_structured_output(NotesStruct, method="json_schema")
 
 chain = prompt | structured_llm
 def notes_generator(topic: str, subject: str) -> str:
     result_object = chain.invoke({"topic":topic, "subject":subject})
     return result_object.model_dump_json(indent=4)
+    # return result_object
 
-
+# print(notes_generator("autotrophs","biology"))
 
     
 
