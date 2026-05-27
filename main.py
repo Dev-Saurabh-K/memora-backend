@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 from sqlalchemy.orm import Session
 from src.Services.ChatService import chat
-from src.config.db import get_db, User, Chat, get_chatdb
+from src.config.db import get_db, User, Chat, get_chatdb, Topics
 from src.schemas.User import UserCreate, UserResponse
 from src.schemas.Chat import ChatMessage, ChatMessageResponse, RetrieveChatResponse
 from src.Services.microtasks import extractTextFromPDF
@@ -16,6 +16,7 @@ from src.Services.GetImage import get_image_url
 from src.auth.auth import hash_password, decode_access_token, create_access_token, verify_password
 from src.Services.imagekitsetup import imagekit
 from typing import List
+import json
 
 
 from datetime import datetime
@@ -93,7 +94,7 @@ def register(user_data:UserCreate , db:Session = Depends(get_db)):
         username = user_data.username,
         password = hashed,
         emailid = user_data.emailid,
-        studyingAt = user_data.studyingAt
+        studying_at = user_data.studying_at
     )
 
     db.add(db_user)
@@ -115,29 +116,77 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 
 @app.post("/api/generate/syllabus")
-async def get_syllabus_plan(file:UploadFile = File(...), db: Session= Depends(get_db)):
+async def get_syllabus_plan(file:UploadFile = File(...), db: Session= Depends(get_db), current_user: User = Depends(get_current_user)):
     file_bytes = await file.read()
     plan = generateTopic((extractTextFromPDF(file_bytes)))
-    return {"plan":plan}
+
+    topics_to_insert = []
+    for topic in plan.topics:
+        # print(topic.title)
+
+        row_data = {
+            "user_id":current_user.id,
+            "topic_text":topic.title,
+            "subject":topic.subject
+            }
+    topics_to_insert.append(row_data)
+
+    db.bulk_insert_mappings(Topics, topics_to_insert)
+    db.commit()
+    db.refresh(topics_to_insert)
+
+    return {
+        "plan":plan
+        }
 
 @app.post("/api/generate/addtopic")
-async def get_topic_plan(topics: str, db:Session= Depends(get_db)):
+def get_topic_plan(topics: str, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
     plan = generateTopic(topics)
+    topics_to_insert = []
+    for topic in plan.topics:
+        # print(topic.title)
+
+        row_data = {
+            "user_id":current_user.id,
+            "topic_text":topic.title,
+            "subject":topic.subject
+            }
+        topics_to_insert.append(row_data)
+
+    
+    db.bulk_insert_mappings(Topics, topics_to_insert)
+    db.commit()
+
     return {"plan":plan}
 
 
 ###############################################################################
 #must change response and code if face problem
 @app.post("/api/generate/notes")     
-def get_notes(topic: str, subject: str, db:Session= Depends(get_db)):
-    return notes_generator(topic=topic, subject=subject)
+def get_notes(topic: str, subject: str, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
+    data = notes_generator(topic=topic, subject=subject)
+    obj = json.loads(data)
+    topic_to_update = db.query(Topics).filter(
+        Topics.user_id == current_user.id,
+        Topics.topic_text == topic,
+        Topics.subject == subject
+        ).first()
+    
+    if topic_to_update == None:
+        return {"data":None}
+    topic_to_update.topic_notes = obj["paragraph"]
+    topic_to_update.keywords = obj["keywords"]
+    # print(obj["paragraph"])
+
+    db.commit()
+    return obj
 ################################################################################
 
 
 @app.post("/api/generate/subnotes")
-def get_subnotes(keyword: str, context: str):
-
-    return generate_sub_notes(keyword, context)
+def get_subnotes(keyword: str, context: str, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
+    data = generate_sub_notes(keyword, context)
+    return data
 
 @app.post("/api/generate/image")
 def get_image(topic: str):

@@ -4,14 +4,14 @@ class UserCreate(BaseModel):
     username: str
     emailid: str
     password: str
-    studyingAt: str
+    studying_at: str
 
 class UserResponse(BaseModel):
     id: int
     username: str
     emailid: str
     password: str
-    studyingAt: str
+    studying_at: str
 
     # class Config:
     #     from_attributes = True

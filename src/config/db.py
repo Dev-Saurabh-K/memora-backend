@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Text
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Text, JSON
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -18,12 +18,21 @@ Base = declarative_base()
 
 class User(Base):
     __tablename__ = "users"
-
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, nullable=False, unique=True)
     emailid = Column(String, nullable=False, unique=True)
     password = Column(String, nullable=False)
-    studyingAt = Column(String)
+    studying_at = Column(String)
+
+
+class Topics(Base):
+    __tablename__="topics"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    topic_text = Column(String)
+    topic_notes = Column(String)
+    keywords = Column(JSON)
+    subject = Column(String)
 
 
 class QuizModel(Base):
@@ -50,7 +59,6 @@ class QuestionModel(Base):
 
     correct_answer = Column(String)
 
-
 class AnswerModel(Base):
     __tablename__ = "answers"
 
@@ -63,10 +71,6 @@ class AnswerModel(Base):
     question_id = Column(Integer, ForeignKey("questions.id"))
 
     user_answer = Column(String)
-
-
-
-
 
 class Chat(Base):
     __tablename__="chats"
