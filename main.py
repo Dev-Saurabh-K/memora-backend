@@ -159,6 +159,12 @@ def get_topic_plan(topics: str, db:Session= Depends(get_db), current_user: User 
 
     return {"plan":plan}
 
+@app.get("/api/get/topic")
+def get_topic(db:Session=Depends(get_db), current_user: User = Depends(get_current_user)):
+    all_topics = db.query(Topics).filter(Topics.user_id == current_user.id).all()
+    return all_topics
+
+
 
 ###############################################################################
 #must change response and code if face problem
