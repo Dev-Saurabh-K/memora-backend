@@ -7,17 +7,23 @@ class QuizCreate(BaseModel):
  
 class SingleAnswerSubmit(BaseModel):
     question_id: int
-    user_answer: str  # "A", "B", "C", or "D"
+    user_answer: str 
 
-# What React sends to submit the whole quiz
 class QuizSubmission(BaseModel):
-    user_id: int      # The ID of the logged-in user
-    quiz_id: int      # The ID of the active quiz
+    user_id: int   
+    quiz_id: int   
     answers: List[SingleAnswerSubmit]
  
 class ResultResponse(BaseModel):
     quiz_id: int
-    correct_count: int
-    total: int
-    score_percentage: float
+    score: int
 
+class Single_subject(BaseModel):
+    subject_name:str
+    subject_score:int
+
+class Total_subject(BaseModel):
+    user_id: int
+    chart_data: List[Single_subject]
+
+    
