@@ -1,11 +1,12 @@
-from fastapi import FastAPI, HTTPException, Depends,status,Request, status, UploadFile, File
+from fastapi import FastAPI, HTTPException, Depends,status,Request, status, UploadFile, File, Query, APIRouter
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from src.Services.ChatService import chat
-from src.config.db import get_db, User, Chat, get_chatdb, Topics
+from src.config.db import get_db, User, Chat, get_chatdb, Topics, History
 from src.schemas.User import UserCreate, UserResponse
 from src.schemas.Chat import ChatMessage, ChatMessageResponse, RetrieveChatResponse
 from src.Services.microtasks import extractTextFromPDF
@@ -17,6 +18,7 @@ from src.auth.auth import hash_password, decode_access_token, create_access_toke
 from src.Services.imagekitsetup import imagekit
 from typing import List
 import json
+import time
 
 
 from datetime import datetime
@@ -119,6 +121,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 async def get_syllabus_plan(file:UploadFile = File(...), db: Session= Depends(get_db), current_user: User = Depends(get_current_user)):
     file_bytes = await file.read()
     plan = generateTopic((extractTextFromPDF(file_bytes)))
+    current_group_id = int(time.time())
 
     topics_to_insert = []
     for topic in plan.topics:
@@ -127,7 +130,8 @@ async def get_syllabus_plan(file:UploadFile = File(...), db: Session= Depends(ge
         row_data = {
             "user_id":current_user.id,
             "topic_text":topic.title,
-            "subject":topic.subject
+            "subject":topic.subject,
+            "history_group": current_group_id
             }
     topics_to_insert.append(row_data)
 
@@ -142,6 +146,7 @@ async def get_syllabus_plan(file:UploadFile = File(...), db: Session= Depends(ge
 @app.post("/api/generate/addtopic")
 def get_topic_plan(topics: str, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
     plan = generateTopic(topics)
+    current_group_id = int(time.time())
     topics_to_insert = []
     for topic in plan.topics:
         # print(topic.title)
@@ -149,15 +154,40 @@ def get_topic_plan(topics: str, db:Session= Depends(get_db), current_user: User 
         row_data = {
             "user_id":current_user.id,
             "topic_text":topic.title,
-            "subject":topic.subject
+            "subject":topic.subject,
+            "history_group": current_group_id
             }
         topics_to_insert.append(row_data)
-
+        
+    # db.add(History)
     
     db.bulk_insert_mappings(Topics, topics_to_insert)
     db.commit()
 
     return {"plan":plan}
+
+@app.get("/api/get/history")
+def get_history(db:Session=Depends(get_db), current_user: User = Depends(get_current_user), limit: int = Query(default=3, description="Number of items to return (e.g., 15 or 100)")):
+    # history = db.query(Topics).order_by(Topics.history_group.desc()).limit(limit).all()
+    # history = db.query(Topics).distinct(Topics.history_group).order_by(Topics.history_group.desc()).limit(limit).all()
+    
+    subquery = (
+    db.query(func.max(Topics.id))
+    .filter(Topics.user_id==current_user.id)
+    .group_by(Topics.history_group)
+    .subquery()
+    )
+
+    
+    topics = (
+        db.query(Topics)
+        .filter(Topics.user_id==current_user.id)
+        .filter(Topics.id.in_(subquery))
+        .order_by(Topics.history_group.desc())
+        .limit(limit)
+        .all()
+    )
+    return topics
 
 @app.get("/api/get/topic")
 def get_topic(db:Session=Depends(get_db), current_user: User = Depends(get_current_user)):

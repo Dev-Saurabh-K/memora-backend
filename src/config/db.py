@@ -1,6 +1,7 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Text, JSON
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Text, JSON, func
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
+# from datetime import datetime
 
 engine = create_engine(
     "sqlite:///users.db",
@@ -24,11 +25,18 @@ class User(Base):
     password = Column(String, nullable=False)
     studying_at = Column(String)
 
+class History(Base):
+    __tablename__="history"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now())
+
 
 class Topics(Base):
     __tablename__="topics"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
+    history_group = Column(Integer, ForeignKey("history.id"))
     topic_text = Column(String)
     topic_notes = Column(String)
     keywords = Column(JSON)
