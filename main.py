@@ -9,6 +9,7 @@ from src.Services.ChatService import chat
 from src.config.db import get_db, User, Chat, get_chatdb, Topics, History
 from src.schemas.User import UserCreate, UserResponse
 from src.schemas.Chat import ChatMessage, ChatMessageResponse, RetrieveChatResponse
+from src.schemas.Topic import AskTopic, TopicResponse
 from src.Services.microtasks import extractTextFromPDF
 from src.Services.GeneratePlan import generateTopic
 from src.Services.NotesGenerator import notes_generator
@@ -116,6 +117,21 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     access_token = create_access_token(data={"sub":user.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
+@app.put("/api/user/data", response_model=UserResponse)
+
+# user_data:UserCreate instead of user_class
+def update_user_data(user_class: int, db:Session=Depends(get_db), current_user: User=Depends(get_current_user)):
+    db_user=db.query(User).filter(User.id==current_user.id).first()
+    # for now only updating class
+    
+    
+    db_user.studying_at=user_class
+
+    db.commit()
+    db.refresh(db_user)
+
+    return db_user
+
 
 @app.post("/api/generate/syllabus")
 async def get_syllabus_plan(file:UploadFile = File(...), db: Session= Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -137,17 +153,18 @@ async def get_syllabus_plan(file:UploadFile = File(...), db: Session= Depends(ge
 
     db.bulk_insert_mappings(Topics, topics_to_insert)
     db.commit()
-    db.refresh(topics_to_insert)
+    # db.refresh(topics_to_insert)
 
-    return {
-        "plan":plan
-        }
+    return plan
 
-@app.post("/api/generate/addtopic")
-def get_topic_plan(topics: str, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
-    plan = generateTopic(topics)
+
+# use topic afterwards
+@app.post("/api/generate/addtopic" ,response_model=List[TopicResponse])
+def get_topic_plan(topics: AskTopic, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
+    plan = generateTopic(topics.topic)
     current_group_id = int(time.time())
     topics_to_insert = []
+    response_topics= []
     for topic in plan.topics:
         # print(topic.title)
 
@@ -157,6 +174,16 @@ def get_topic_plan(topics: str, db:Session= Depends(get_db), current_user: User 
             "subject":topic.subject,
             "history_group": current_group_id
             }
+        
+        response_topics.append(
+            TopicResponse(
+                index=getattr(topic, 'index', 1),
+                title=topic.title,
+                subject=topic.subject,
+                
+
+            )
+        )
         topics_to_insert.append(row_data)
         
     # db.add(History)
@@ -164,7 +191,7 @@ def get_topic_plan(topics: str, db:Session= Depends(get_db), current_user: User 
     db.bulk_insert_mappings(Topics, topics_to_insert)
     db.commit()
 
-    return {"plan":plan}
+    return response_topics
 
 @app.get("/api/get/history")
 def get_history(db:Session=Depends(get_db), current_user: User = Depends(get_current_user), limit: int = Query(default=3, description="Number of items to return (e.g., 15 or 100)")):
