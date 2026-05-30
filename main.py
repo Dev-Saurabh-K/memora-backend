@@ -3,10 +3,12 @@ from fastapi import FastAPI, HTTPException, Depends,status,Request, status, Uplo
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
+from fastapi.concurrency import run_in_threadpool
+
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from src.Services.ChatService import chat
-from src.config.db import get_db, User, Chat, get_chatdb, Topics, SubNotes
+# from src.Services.ChatService import chat
+from src.config.db import get_db, User, Chat, Topics, SubNotes
 from src.schemas.User import UserCreate, UserResponse, UserUpdateRequest
 from src.schemas.Chat import ChatMessage, ChatMessageResponse, RetrieveChatResponse
 from src.schemas.Topic import AskTopic, TopicResponse, HistoryResponse
@@ -17,6 +19,7 @@ from src.Services.SubNotesGenerator import generate_sub_notes
 from src.Services.GetImage import get_image_url
 from src.auth.auth import hash_password, decode_access_token, create_access_token, verify_password
 from src.Services.imagekitsetup import imagekit
+from src.Services.EmbeddingServiceStorage import storeTextInVectorStore, retrieveAnswersFromTexts
 from typing import List
 import json
 import time
@@ -136,7 +139,11 @@ def update_user_data(user_data: UserUpdateRequest, db:Session=Depends(get_db), c
 @app.post("/api/generate/syllabus")
 async def get_syllabus_plan(file:UploadFile = File(...), db: Session= Depends(get_db), current_user: User = Depends(get_current_user)):
     file_bytes = await file.read()
-    plan = generateTopic((extractTextFromPDF(file_bytes)))
+
+    # plan = generateTopic((extractTextFromPDF(file_bytes)))
+    extracted_PDF = await run_in_threadpool(extractTextFromPDF, file_bytes)
+    plan = await run_in_threadpool(generateTopic, extracted_PDF)
+    
     current_group_id = int(time.time())
 
     topics_to_insert = []
@@ -160,8 +167,8 @@ async def get_syllabus_plan(file:UploadFile = File(...), db: Session= Depends(ge
 
 # use topic afterwards
 @app.post("/api/generate/addtopic" ,response_model=List[TopicResponse])
-def get_topic_plan(topics: AskTopic, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
-    plan = generateTopic(topics.topic)
+async def get_topic_plan(topics: AskTopic, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
+    plan = await run_in_threadpool(generateTopic,topics.topic)
     current_group_id = int(time.time())
     topics_to_insert = []
     response_topics= []
@@ -226,7 +233,7 @@ def get_topic(db:Session=Depends(get_db), current_user: User = Depends(get_curre
 ###############################################################################
 #must change response and code if face problem
 @app.post("/api/generate/notes")     
-def get_notes(topic: str, subject: str, history_group: int, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
+async def get_notes(topic: str, subject: str, history_group: int, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
 
     topic_to_update = db.query(Topics).filter(
         Topics.user_id == current_user.id,
@@ -238,17 +245,23 @@ def get_notes(topic: str, subject: str, history_group: int, db:Session= Depends(
     if(topic_to_update.topic_notes==None):
 
     
-        data = notes_generator(topic=topic, subject=subject)
+        # data = notes_generator(topic=topic, subject=subject)
+        data = await run_in_threadpool(notes_generator, topic, subject)
         obj = json.loads(data)
+        # making collection for vector embeddings
+        collection_name = f"{current_user.id}_{topic_to_update.id}"
     
         # if topic_to_update == None:
         #     return {"data":None}
         topic_to_update.topic_notes = obj["paragraph"]
         topic_to_update.keywords = obj["keywords"]
+        topic_to_update.collection = collection_name
         # print(obj["paragraph"])
 
-    db.commit()
-    db.refresh(topic_to_update)
+        await run_in_threadpool(storeTextInVectorStore,topic_to_update.topic_notes, collection_name)
+
+        db.commit()
+        db.refresh(topic_to_update)
     return topic_to_update
 ################################################################################
 
@@ -267,11 +280,11 @@ def retrieve_notes(topic:str, subject: str, history_group: int, db:Session= Depe
 
 
 @app.post("/api/generate/subnotes")
-def get_subnotes(keyword: str, context: str, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
+async def get_subnotes(keyword: str, context: str, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
     data = db.query(SubNotes).filter(
         SubNotes.topic_id
     )
-    data = generate_sub_notes(keyword, context)
+    data = await run_in_threadpool(generate_sub_notes, keyword, context)
     return data
 
 
@@ -309,52 +322,68 @@ def get_users(db: Session = Depends(get_db)):
     """Get all users"""
     return db.query(User).all()
 
-@app.post("/api/chat/send")
-def send_message(query: ChatMessage, chatdb: Session = Depends(get_chatdb)) -> ChatMessageResponse:
+# @app.post("/api/notes/chat/send", response_model=ChatMessageResponse)
+@app.post("/api/notes/chat/send", response_model=ChatMessageResponse)
+def send_message(query: ChatMessage, db: Session = Depends(get_db) , current_user: User = Depends(get_current_user)):
     """send query"""
 
-
-    response = chat(query.message)
-
-    # store in db
-    # codes
-    # chatdb.add(chat_response)
-    new_chat= Chat(
-        # user_id = 1,
-        usermessage = query.message,
-        modelmessage = response
-    )
-
-    chatdb.add(new_chat)
-    chatdb.commit()
-
-    chatdb.refresh(new_chat)
-
-    chat_response = ChatMessageResponse(
-        user_id=1,
-        message=response,
-        status='sent'
-    )
-
-    return chat_response
+    notes = db.query(Topics).filter(
+        Topics.user_id == current_user.id,
+        Topics.id == query.topic_id
+        ).first()
+    
+    
+    if not notes:
+        raise HTTPException(
+            status_code=404,
+            detail="Topic not found."
+        )
+    
+    if not notes.topic_notes:
+        raise HTTPException(
+            status_code=400,
+            detail="Notes not found."
+        )
+    
+    try:
+        collection_name = f"{current_user.id}_{query.topic_id}"
+        response = retrieveAnswersFromTexts(query.message, collection_name)
 
 
+        chat = Chat(user_id = current_user.id, topic_id = query.topic_id, usermessage = query.message, modelmessage = response)
+        db.add(chat)
+        db.commit()
+        db.refresh(chat)
 
-@app.get("/api/chat/retrive")
-def retrive_message(chatdb: Session = Depends(get_chatdb)) -> List[RetrieveChatResponse]:
+
+        return ChatMessageResponse(
+            user_id = current_user.id,
+            message = response,
+            topic_id = query.topic_id
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Chat processing failed: {str(e)}"
+        )
+        # storeTextInVectorStore(notes.topic_notes,collection_name)
+
+
+@app.get("/api/chat/retrive", response_model=List[RetrieveChatResponse])
+def retrive_message(db: Session = Depends(get_db), current_user : User = Depends(get_current_user)):
 
     
-    all_chats = chatdb.query(Chat).all()
+    all_chats = db.query(Chat).filter(Chat.user_id == current_user.id).all()
+    print(all_chats)
     response = [] 
 
 
     for chat in all_chats:
-        # print(f"User: {chat.usermessage} | AI: {chat.modelmessage}")
         response.append(RetrieveChatResponse(
-            user_id = 1,
+            user_id = current_user.id,
             usermessage = chat.usermessage,
             aimessage = chat.modelmessage,
-            created_at = datetime(2026, 1, 1, 12, 0)
+            # created_at = datetime(2026, 1, 1, 12, 0)
         ))
     
     return response
@@ -363,7 +392,8 @@ def retrive_message(chatdb: Session = Depends(get_chatdb)) -> List[RetrieveChatR
 @app.post("/users/quiz_generate")
 def quiz(
     quiz_data: QuizCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     try:
 
@@ -399,7 +429,7 @@ def quiz(
         quiz_json = json.loads(content)
 
         new_quiz = QuizModel(
-            user_id=1, 
+            user_id=current_user.id, 
             topic=quiz_data.topic,
             difficulty=quiz_data.difficulty
         )

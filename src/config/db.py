@@ -37,18 +37,26 @@ class Topics(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     history_group = Column(Integer)
+    collection = Column(String)
     topic_text = Column(String)
     topic_notes = Column(String)
     keywords = Column(JSON)
     subject = Column(String)
+
+class Chat(Base):
+    __tablename__="chats"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    topic_id = Column(Integer)
+    usermessage = Column(String)
+    modelmessage = Column(String)
+    created_at = Column(DateTime)
 
 class SubNotes(Base):
     __tablename__="subnotes"
     id = Column(Integer, primary_key=True, index=True)
     topic_id = Column(String, ForeignKey("topics.id"))
     text = Column(String)
-
-
 
 class QuizModel(Base):
     __tablename__ = "quizzes"
@@ -87,22 +95,8 @@ class AnswerModel(Base):
 
     user_answer = Column(String)
 
-class Chat(Base):
-    __tablename__="chats"
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    usermessage = Column(String)
-    modelmessage = Column(String)
-    created_at = Column(DateTime)
     
 Base.metadata.create_all(bind=engine)
-
-def get_chatdb():
-    chatdb = sessionLocal()
-    try:
-        yield chatdb
-    finally:
-        chatdb.close()
 
 
 def get_db():
