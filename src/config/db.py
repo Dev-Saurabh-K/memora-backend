@@ -25,22 +25,29 @@ class User(Base):
     password = Column(String, nullable=False)
     studying_at = Column(String)
 
-class History(Base):
-    __tablename__="history"
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    created_at = Column(DateTime, server_default=func.now())
+# class History(Base):
+#     __tablename__="history"
+#     id = Column(Integer, primary_key=True, index=True)
+#     user_id = Column(Integer, ForeignKey("users.id"))
+#     created_at = Column(DateTime, server_default=func.now())
 
 
 class Topics(Base):
     __tablename__="topics"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    history_group = Column(Integer, ForeignKey("history.id"))
+    history_group = Column(Integer)
     topic_text = Column(String)
     topic_notes = Column(String)
     keywords = Column(JSON)
     subject = Column(String)
+
+class SubNotes(Base):
+    __tablename__="subnotes"
+    id = Column(Integer, primary_key=True, index=True)
+    topic_id = Column(String, ForeignKey("topics.id"))
+    text = Column(String)
+
 
 
 class QuizModel(Base):

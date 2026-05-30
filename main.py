@@ -6,10 +6,10 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from src.Services.ChatService import chat
-from src.config.db import get_db, User, Chat, get_chatdb, Topics, History
-from src.schemas.User import UserCreate, UserResponse
+from src.config.db import get_db, User, Chat, get_chatdb, Topics, SubNotes
+from src.schemas.User import UserCreate, UserResponse, UserUpdateRequest
 from src.schemas.Chat import ChatMessage, ChatMessageResponse, RetrieveChatResponse
-from src.schemas.Topic import AskTopic, TopicResponse
+from src.schemas.Topic import AskTopic, TopicResponse, HistoryResponse
 from src.Services.microtasks import extractTextFromPDF
 from src.Services.GeneratePlan import generateTopic
 from src.Services.NotesGenerator import notes_generator
@@ -117,19 +117,19 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     access_token = create_access_token(data={"sub":user.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.put("/api/user/data", response_model=UserResponse)
 
-# user_data:UserCreate instead of user_class
-def update_user_data(user_class: int, db:Session=Depends(get_db), current_user: User=Depends(get_current_user)):
+# @app.put("/api/user/data", response_model=UserResponse)
+@app.put("/api/user/data", response_model=UserResponse)
+def update_user_data(user_data: UserUpdateRequest, db:Session=Depends(get_db), current_user: User=Depends(get_current_user)):
     db_user=db.query(User).filter(User.id==current_user.id).first()
-    # for now only updating class
-    
-    
-    db_user.studying_at=user_class
+
+    corrected_user_data=user_data.model_dump(exclude_unset=True)
+
+    for field, value in corrected_user_data.items():
+        setattr(db_user, field, value)
 
     db.commit()
     db.refresh(db_user)
-
     return db_user
 
 
@@ -149,7 +149,7 @@ async def get_syllabus_plan(file:UploadFile = File(...), db: Session= Depends(ge
             "subject":topic.subject,
             "history_group": current_group_id
             }
-    topics_to_insert.append(row_data)
+        topics_to_insert.append(row_data)
 
     db.bulk_insert_mappings(Topics, topics_to_insert)
     db.commit()
@@ -193,7 +193,7 @@ def get_topic_plan(topics: AskTopic, db:Session= Depends(get_db), current_user: 
 
     return response_topics
 
-@app.get("/api/get/history")
+@app.get("/api/get/history", response_model=List[HistoryResponse])
 def get_history(db:Session=Depends(get_db), current_user: User = Depends(get_current_user), limit: int = Query(default=3, description="Number of items to return (e.g., 15 or 100)")):
     # history = db.query(Topics).order_by(Topics.history_group.desc()).limit(limit).all()
     # history = db.query(Topics).distinct(Topics.history_group).order_by(Topics.history_group.desc()).limit(limit).all()
@@ -226,30 +226,55 @@ def get_topic(db:Session=Depends(get_db), current_user: User = Depends(get_curre
 ###############################################################################
 #must change response and code if face problem
 @app.post("/api/generate/notes")     
-def get_notes(topic: str, subject: str, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
-    data = notes_generator(topic=topic, subject=subject)
-    obj = json.loads(data)
+def get_notes(topic: str, subject: str, history_group: int, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
+
     topic_to_update = db.query(Topics).filter(
         Topics.user_id == current_user.id,
-        Topics.topic_text == topic,
-        Topics.subject == subject
+        Topics.topic_text==topic,
+        Topics.subject == subject,
+        Topics.history_group == history_group
         ).first()
     
-    if topic_to_update == None:
-        return {"data":None}
-    topic_to_update.topic_notes = obj["paragraph"]
-    topic_to_update.keywords = obj["keywords"]
-    # print(obj["paragraph"])
+    if(topic_to_update.topic_notes==None):
+
+    
+        data = notes_generator(topic=topic, subject=subject)
+        obj = json.loads(data)
+    
+        # if topic_to_update == None:
+        #     return {"data":None}
+        topic_to_update.topic_notes = obj["paragraph"]
+        topic_to_update.keywords = obj["keywords"]
+        # print(obj["paragraph"])
 
     db.commit()
-    return obj
+    db.refresh(topic_to_update)
+    return topic_to_update
 ################################################################################
+
+@app.post("/api/retrieve/notes")
+def retrieve_notes(topic:str, subject: str, history_group: int, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
+    data = db.query(Topics).filter(
+        Topics.user_id == current_user.id,
+        Topics.history_group == history_group,
+        Topics.subject == subject,
+        Topics.topic_text == topic
+    ).first()
+    
+
+    return data
+
 
 
 @app.post("/api/generate/subnotes")
 def get_subnotes(keyword: str, context: str, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
+    data = db.query(SubNotes).filter(
+        SubNotes.topic_id
+    )
     data = generate_sub_notes(keyword, context)
     return data
+
+
 
 @app.post("/api/generate/image")
 def get_image(topic: str):

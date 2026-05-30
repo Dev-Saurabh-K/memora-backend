@@ -45,7 +45,7 @@ prompt = ChatPromptTemplate.from_messages([
     )
 ])
 
-llm = ChatGoogleGenerativeAI(model = "gemini-2.5-flash-lite", temperature = 0)
+llm = ChatGoogleGenerativeAI(model = "gemini-2.5-flash-lite", temperature = 0, api_key=apikey)
 
 structured_llm = llm.with_structured_output(Subnotes)
 
@@ -54,5 +54,3 @@ chain = prompt | structured_llm
 
 def generate_sub_notes(keyword: str, context: str ) -> Subnotes:
     return chain.invoke({"keyword": keyword, "context": context})
-
-# print(generate_sub_notes("gazed-and", "The waves beside them danced; but they Out-did the sparkling waves in glee: A poet could not but be gay,In such a jocund company: I gazed—and gazed—but little thought What wealth the show to me had brought:"))

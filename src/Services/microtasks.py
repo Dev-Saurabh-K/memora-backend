@@ -19,4 +19,7 @@ def extractTextFromPDF(pdf_byte: bytes) ->str:
             extracted_text += text + "\n"
             
     return extracted_text.strip()
+
+
+
     
