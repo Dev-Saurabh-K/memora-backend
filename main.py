@@ -12,6 +12,7 @@ from src.config.db import get_db, User, Chat, Topics, SubNotes
 from src.schemas.User import UserCreate, UserResponse, UserUpdateRequest
 from src.schemas.Chat import ChatMessage, ChatMessageResponse, RetrieveChatResponse
 from src.schemas.Topic import AskTopic, TopicResponse, HistoryResponse
+from src.schemas.Notes import NotesRequest
 from src.Services.microtasks import extractTextFromPDF
 from src.Services.GeneratePlan import generateTopic
 from src.Services.NotesGenerator import notes_generator
@@ -224,8 +225,10 @@ def get_history(db:Session=Depends(get_db), current_user: User = Depends(get_cur
     return topics
 
 @app.get("/api/get/topic")
-def get_topic(db:Session=Depends(get_db), current_user: User = Depends(get_current_user)):
-    all_topics = db.query(Topics).filter(Topics.user_id == current_user.id).all()
+def get_topic(history_group: int, db:Session=Depends(get_db), current_user: User = Depends(get_current_user)):
+    all_topics = db.query(Topics).filter(
+        Topics.user_id == current_user.id,
+        Topics.history_group == history_group).all()
     return all_topics
 
 
@@ -233,20 +236,18 @@ def get_topic(db:Session=Depends(get_db), current_user: User = Depends(get_curre
 ###############################################################################
 #must change response and code if face problem
 @app.post("/api/generate/notes")     
-async def get_notes(topic: str, subject: str, history_group: int, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
+async def get_notes( topic:NotesRequest , db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
 
     topic_to_update = db.query(Topics).filter(
         Topics.user_id == current_user.id,
-        Topics.topic_text==topic,
-        Topics.subject == subject,
-        Topics.history_group == history_group
+        Topics.id==topic.topic_id,
         ).first()
     
     if(topic_to_update.topic_notes==None):
 
     
         # data = notes_generator(topic=topic, subject=subject)
-        data = await run_in_threadpool(notes_generator, topic, subject)
+        data = await run_in_threadpool(notes_generator, topic_to_update.topic_text, topic_to_update.subject)
         obj = json.loads(data)
         # making collection for vector embeddings
         collection_name = f"{current_user.id}_{topic_to_update.id}"
@@ -265,13 +266,11 @@ async def get_notes(topic: str, subject: str, history_group: int, db:Session= De
     return topic_to_update
 ################################################################################
 
-@app.post("/api/retrieve/notes")
-def retrieve_notes(topic:str, subject: str, history_group: int, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
+@app.get("/api/retrieve/notes")
+def retrieve_notes(topic_id:int, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
     data = db.query(Topics).filter(
         Topics.user_id == current_user.id,
-        Topics.history_group == history_group,
-        Topics.subject == subject,
-        Topics.topic_text == topic
+        Topics.id == topic_id,
     ).first()
     
 
