@@ -12,7 +12,7 @@ from src.config.db import get_db, User, Chat, Topics, SubNotes
 from src.schemas.User import UserCreate, UserResponse, UserUpdateRequest
 from src.schemas.Chat import ChatMessage, ChatMessageResponse, RetrieveChatResponse
 from src.schemas.Topic import AskTopic, TopicResponse, HistoryResponse
-from src.schemas.Notes import NotesRequest
+from src.schemas.Notes import NotesRequest, NotesResponse
 from src.Services.microtasks import extractTextFromPDF
 from src.Services.GeneratePlan import generateTopic
 from src.Services.NotesGenerator import notes_generator
@@ -235,7 +235,7 @@ def get_topic(history_group: int, db:Session=Depends(get_db), current_user: User
 
 ###############################################################################
 #must change response and code if face problem
-@app.post("/api/generate/notes")     
+@app.post("/api/generate/notes", response_model=NotesResponse)     
 async def get_notes( topic:NotesRequest , db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
 
     topic_to_update = db.query(Topics).filter(
