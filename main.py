@@ -369,10 +369,13 @@ def send_message(query: ChatMessage, db: Session = Depends(get_db) , current_use
 
 
 @app.get("/api/chat/retrive", response_model=List[RetrieveChatResponse])
-def retrive_message(db: Session = Depends(get_db), current_user : User = Depends(get_current_user)):
+def retrive_message(topic_id:int, db: Session = Depends(get_db), current_user : User = Depends(get_current_user)):
 
     
-    all_chats = db.query(Chat).filter(Chat.user_id == current_user.id).all()
+    all_chats = db.query(Chat).filter(
+        Chat.user_id == current_user.id,
+        Chat.topic_id == topic_id
+        ).all()
     print(all_chats)
     response = [] 
 
