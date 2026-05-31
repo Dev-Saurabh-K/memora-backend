@@ -24,17 +24,8 @@ from src.Services.EmbeddingServiceStorage import storeTextInVectorStore, retriev
 from typing import List
 import json
 import time
-
-
-from datetime import datetime
-from src.schemas.question_schemas import QuestionResponse,SubmitAnswer,ResultResponse,QuizCreate
-from src.Analysis.Quiz import get_quiz
 import json
 
-from src.config.db import (
-    QuizModel,
-    QuestionModel
-)
 
 
 
@@ -67,20 +58,10 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     return user
 
 
-
 # example protected route
 @app.get("/protected/user/me", response_model=UserResponse)
 def read_user_me(current_user: User = Depends(get_current_user)):
     return current_user
-
-
-# @app.get("/")
-# def home():
-
-#     query="what is mitochondria? give answer in one line"
-#     print(chat(query))
-#     return {"message": "Hello World"}
-
 
 
 # will work on this in some time
@@ -121,8 +102,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     access_token = create_access_token(data={"sub":user.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
-
-# @app.put("/api/user/data", response_model=UserResponse)
 @app.put("/api/user/data", response_model=UserResponse)
 def update_user_data(user_data: UserUpdateRequest, db:Session=Depends(get_db), current_user: User=Depends(get_current_user)):
     db_user=db.query(User).filter(User.id==current_user.id).first()
@@ -135,7 +114,6 @@ def update_user_data(user_data: UserUpdateRequest, db:Session=Depends(get_db), c
     db.commit()
     db.refresh(db_user)
     return db_user
-
 
 @app.post("/api/generate/syllabus")
 async def get_syllabus_plan(file:UploadFile = File(...), db: Session= Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -165,8 +143,6 @@ async def get_syllabus_plan(file:UploadFile = File(...), db: Session= Depends(ge
 
     return plan
 
-
-# use topic afterwards
 @app.post("/api/generate/addtopic" ,response_model=List[TopicResponse])
 async def get_topic_plan(topics: AskTopic, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
     plan = await run_in_threadpool(generateTopic,topics.topic)
@@ -231,10 +207,6 @@ def get_topic(history_group: int, db:Session=Depends(get_db), current_user: User
         Topics.history_group == history_group).all()
     return all_topics
 
-
-
-###############################################################################
-#must change response and code if face problem
 @app.post("/api/generate/notes", response_model=NotesResponse)     
 async def get_notes( topic:NotesRequest , db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
 
@@ -264,7 +236,6 @@ async def get_notes( topic:NotesRequest , db:Session= Depends(get_db), current_u
         db.commit()
         db.refresh(topic_to_update)
     return topic_to_update
-################################################################################
 
 @app.get("/api/retrieve/notes")
 def retrieve_notes(topic_id:int, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -276,8 +247,6 @@ def retrieve_notes(topic_id:int, db:Session= Depends(get_db), current_user: User
 
     return data
 
-
-
 @app.post("/api/generate/subnotes")
 async def get_subnotes(keyword: str, context: str, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
     data = db.query(SubNotes).filter(
@@ -285,8 +254,6 @@ async def get_subnotes(keyword: str, context: str, db:Session= Depends(get_db), 
     )
     data = await run_in_threadpool(generate_sub_notes, keyword, context)
     return data
-
-
 
 @app.post("/api/generate/image")
 def get_image(topic: str):
@@ -297,9 +264,6 @@ def get_image(topic: str):
         }
     )
 
-
-
-#upload file
 @app.post("/api/upload/file")
 async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
 
@@ -310,11 +274,6 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
     )
 
     return response
-
-    
-
-
-
 
 @app.get("/api/users/", response_model=list[UserResponse])
 def get_users(db: Session = Depends(get_db)):
@@ -367,7 +326,6 @@ def send_message(query: ChatMessage, db: Session = Depends(get_db) , current_use
         )
         # storeTextInVectorStore(notes.topic_notes,collection_name)
 
-
 @app.get("/api/chat/retrive", response_model=List[RetrieveChatResponse])
 def retrive_message(topic_id:int, db: Session = Depends(get_db), current_user : User = Depends(get_current_user)):
 
@@ -390,90 +348,3 @@ def retrive_message(topic_id:int, db: Session = Depends(get_db), current_user : 
     
     return response
     
-
-@app.post("/users/quiz_generate")
-def quiz(
-    quiz_data: QuizCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    try:
-
-        query = f"""
-        Create a 10 highly precise quiz based on:
-
-        Topic: {quiz_data.topic}
-        Difficulty: {quiz_data.difficulty}
-
-        IMPORTANT:
-        - Return ONLY valid JSON
-        - No markdown
-        - No explanation
-        - No extra text
-
-        JSON FORMAT:
-        [
-          {{
-            "question": "Question here",
-            "options": {{
-              "A": "Option A",
-              "B": "Option B",
-              "C": "Option C",
-              "D": "Option D"
-            }},
-            "correct_answer": "A"
-          }}
-        ]
-        """
-
-        content = get_quiz(query)
-
-        quiz_json = json.loads(content)
-
-        new_quiz = QuizModel(
-            user_id=current_user.id, 
-            topic=quiz_data.topic,
-            difficulty=quiz_data.difficulty
-        )
-
-        db.add(new_quiz)
-        db.commit()
-        db.refresh(new_quiz)
-
-        for item in quiz_json:
-
-            question = QuestionModel(
-                quiz_id=new_quiz.id,
-
-                question_text=item["question"],
-
-                option_a=item["options"]["A"],
-                option_b=item["options"]["B"],
-                option_c=item["options"]["C"],
-                option_d=item["options"]["D"],
-
-                correct_answer=item["correct_answer"]
-            )
-
-            db.add(question)
-
-        db.commit()
-
-        return {
-            "quiz_id": new_quiz.id,
-            "questions": quiz_json
-        }
-
-    except json.JSONDecodeError:
-
-        raise HTTPException(
-            status_code=500,
-            detail="AI did not return valid JSON"
-        )
-
-    except Exception as e:
-
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )

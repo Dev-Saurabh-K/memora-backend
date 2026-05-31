@@ -3,14 +3,12 @@ from datetime import datetime
 from typing import Optional
 
 class ChatMessage(BaseModel):
-    user_id: int
     message: str
     topic_id : int
     # created_at
 
 
 class ChatMessageResponse(BaseModel):
-    user_id: int
     message: str
     topic_id: int
     # created_at

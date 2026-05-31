@@ -58,42 +58,6 @@ class SubNotes(Base):
     topic_id = Column(String, ForeignKey("topics.id"))
     text = Column(String)
 
-class QuizModel(Base):
-    __tablename__ = "quizzes"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    topic = Column(String, index=True)
-    difficulty = Column(String, default="medium")
-
-class QuestionModel(Base):
-    __tablename__ = "questions"
-
-    id = Column(Integer, primary_key=True, index=True)
-
-    quiz_id = Column(Integer, ForeignKey("quizzes.id"))
-
-    question_text = Column(Text)
-
-    option_a = Column(String)
-    option_b = Column(String)
-    option_c = Column(String)
-    option_d = Column(String)
-
-    correct_answer = Column(String)
-
-class AnswerModel(Base):
-    __tablename__ = "answers"
-
-    id = Column(Integer, primary_key=True, index=True)
-
-    user_id = Column(Integer, ForeignKey("users.id"))
-
-    quiz_id = Column(Integer, ForeignKey("quizzes.id"))
-
-    question_id = Column(Integer, ForeignKey("questions.id"))
-
-    user_answer = Column(String)
 
     
 Base.metadata.create_all(bind=engine)
