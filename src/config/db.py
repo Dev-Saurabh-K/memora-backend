@@ -16,7 +16,6 @@ sessionLocal = sessionmaker(
 
 Base = declarative_base()
 
-
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -24,13 +23,6 @@ class User(Base):
     emailid = Column(String, nullable=False, unique=True)
     password = Column(String, nullable=False)
     studying_at = Column(String)
-
-# class History(Base):
-#     __tablename__="history"
-#     id = Column(Integer, primary_key=True, index=True)
-#     user_id = Column(Integer, ForeignKey("users.id"))
-#     created_at = Column(DateTime, server_default=func.now())
-
 
 class Topics(Base):
     __tablename__="topics"
@@ -58,7 +50,16 @@ class SubNotes(Base):
     topic_id = Column(String, ForeignKey("topics.id"))
     text = Column(String)
 
-
+class QuizQuestion(Base):
+    __tablename__="quizquestion"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    topic_id = Column(Integer, ForeignKey("topics.id"))
+    batch_id = Column(Integer)
+    question = Column(String)
+    answer = Column(String)
+    chosen_answer = Column(String)
+    options = Column(JSON)
     
 Base.metadata.create_all(bind=engine)
 

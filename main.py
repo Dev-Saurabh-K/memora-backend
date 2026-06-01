@@ -8,16 +8,18 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 # from src.Services.ChatService import chat
-from src.config.db import get_db, User, Chat, Topics, SubNotes
+from src.config.db import get_db, User, Chat, Topics, SubNotes, QuizQuestion
 from src.schemas.User import UserCreate, UserResponse, UserUpdateRequest
 from src.schemas.Chat import ChatMessage, ChatMessageResponse, RetrieveChatResponse
 from src.schemas.Topic import AskTopic, TopicResponse, HistoryResponse
 from src.schemas.Notes import NotesRequest, NotesResponse
+from src.schemas.Quiz import QuizSubmitRequest, QuizSubmitResponse
 from src.Services.microtasks import extractTextFromPDF
 from src.Services.GeneratePlan import generateTopic
 from src.Services.NotesGenerator import notes_generator
 from src.Services.SubNotesGenerator import generate_sub_notes
 from src.Services.GetImage import get_image_url
+from src.Services.quiz import generateQuiz
 from src.auth.auth import hash_password, decode_access_token, create_access_token, verify_password
 from src.Services.imagekitsetup import imagekit
 from src.Services.EmbeddingServiceStorage import storeTextInVectorStore, retrieveAnswersFromTexts
@@ -25,9 +27,6 @@ from typing import List
 import json
 import time
 import json
-
-
-
 
 app = FastAPI()
 
@@ -41,7 +40,6 @@ app.add_middleware(
 )
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> dict:
     """Dependency that extracts the user from the incomming JWT token."""
@@ -57,12 +55,10 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     
     return user
 
-
 # example protected route
 @app.get("/protected/user/me", response_model=UserResponse)
 def read_user_me(current_user: User = Depends(get_current_user)):
     return current_user
-
 
 # will work on this in some time
 @app.post("/register", response_model=UserResponse)
@@ -348,3 +344,46 @@ def retrive_message(topic_id:int, db: Session = Depends(get_db), current_user : 
     
     return response
     
+@app.get("/api/notes/quiz", response_model=List[QuizSubmitResponse])
+async def generate_quiz(topic_id:int, db:Session = Depends(get_db), current_user:User = Depends(get_current_user)):
+
+    #check esisting question
+    check_existing_question = db.query(QuizQuestion).filter(QuizQuestion.user_id == current_user.id, QuizQuestion.topic_id == topic_id).all()
+    if check_existing_question:
+        return check_existing_question
+    
+    topic_details = db.query(Topics).filter(
+        Topics.user_id == current_user.id,
+        Topics.id == topic_id
+        ).first()
+    
+    quiz = await run_in_threadpool(generateQuiz, topic_details.topic_notes, topic_details.subject, current_user.studying_at)
+
+    batch_id = int(time.time())
+    questions_to_insert = []
+
+    for question in quiz.questions:
+        row_data = {
+            "user_id":current_user.id,
+            "topic_id":topic_id,
+            "batch_id":batch_id,
+            "question":question.question,
+            "answer":question.correct_answer,
+            "options":question.options
+        }
+        questions_to_insert.append(row_data)
+
+    db.bulk_insert_mappings(QuizQuestion, questions_to_insert)
+    db.commit()
+    saved_questions = db.query(QuizQuestion).filter(QuizQuestion.user_id == current_user.id, QuizQuestion.topic_id == topic_id).all()
+    return saved_questions
+    
+@app.post("/api/notes/quiz/submit", response_model=List[QuizSubmitResponse])
+def submit_quiz(request: QuizSubmitRequest, db:Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    question_db = db.query(QuizQuestion).filter(QuizQuestion.batch_id == request.batch_id, QuizQuestion.user_id == current_user.id).all()
+
+    for index, question in enumerate(question_db):
+        question.chosen_answer = request.chosen_options[index]
+
+    db.commit()
+    return db.query(QuizQuestion).filter(QuizQuestion.batch_id == request.batch_id).all()
