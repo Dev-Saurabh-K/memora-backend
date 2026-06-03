@@ -69,6 +69,13 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     
     return user
 
+@app.get("/api/test")
+def test_api():
+    return {
+        "status":"working"
+    }
+
+
 # example protected route
 @app.get("/protected/user/me", response_model=UserResponse)
 def read_user_me(current_user: User = Depends(get_current_user)):
