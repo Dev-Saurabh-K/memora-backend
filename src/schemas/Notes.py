@@ -14,3 +14,7 @@ class NotesResponse(BaseModel):
     collection: str
     topic_notes:str
     subject:str
+
+class SubnotesRequest(BaseModel):
+    keyword: str
+    context: str

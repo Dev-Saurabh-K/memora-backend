@@ -12,7 +12,7 @@ from src.config.db import get_db, User, Chat, Topics, SubNotes, QuizQuestion
 from src.schemas.User import UserCreate, UserResponse, UserUpdateRequest
 from src.schemas.Chat import ChatMessage, ChatMessageResponse, RetrieveChatResponse
 from src.schemas.Topic import AskTopic, TopicResponse, HistoryResponse
-from src.schemas.Notes import NotesRequest, NotesResponse
+from src.schemas.Notes import NotesRequest, NotesResponse, SubnotesRequest
 from src.schemas.Quiz import QuizSubmitRequest, QuizSubmitResponse
 from src.Services.microtasks import extractTextFromPDF
 from src.Services.GeneratePlan import generateTopic
@@ -46,6 +46,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
+        "http://localhost:4173",
         "https://private-sigma-mauve.vercel.app",
         "https://hacksphere-i01cihcir-saurabh-kumars-projects-ee8f1350.vercel.app/",
     ],
@@ -266,14 +267,14 @@ def retrieve_notes(topic_id:int, db:Session= Depends(get_db), current_user: User
     return data
 
 @app.post("/api/generate/subnotes")
-async def get_subnotes(keyword: str, context: str, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
+async def get_subnotes(req: SubnotesRequest, db:Session= Depends(get_db), current_user: User = Depends(get_current_user)):
     data = db.query(SubNotes).filter(
         SubNotes.topic_id
     )
-    data = await run_in_threadpool(generate_sub_notes, keyword, context)
+    data = await run_in_threadpool(generate_sub_notes, req.keyword, req.context)
     return data
 
-@app.post("/api/generate/image")
+@app.get("/api/generate/image")
 def get_image(topic: str):
     url=get_image_url(topic)
     return (
