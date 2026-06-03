@@ -30,13 +30,27 @@ import json
 
 app = FastAPI()
 
+
+# for developement
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],  # For development
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+
+# )
+
+# for production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For development
+    allow_origins=[
+        "http://localhost:5173",
+        "https://private-sigma-mauve.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-
 )
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
