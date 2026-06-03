@@ -47,6 +47,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "https://private-sigma-mauve.vercel.app",
+        "https://hacksphere-i01cihcir-saurabh-kumars-projects-ee8f1350.vercel.app/",
     ],
     allow_credentials=True,
     allow_methods=["*"],
