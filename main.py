@@ -50,7 +50,8 @@ app.add_middleware(
         "https://private-sigma-mauve.vercel.app",
         "https://hacksphere-i01cihcir-saurabh-kumars-projects-ee8f1350.vercel.app/",
         "https://hacksphere1.vercel.app",
-        "https://hacksphere2-pink.vercel.app"
+        "https://hacksphere2-pink.vercel.app",
+        "https://hacksphere-omega.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
