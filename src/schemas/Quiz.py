@@ -22,3 +22,8 @@ class QuizPerformanceResponse(BaseModel):
     score: int
     subject: str
     attended: bool
+
+class SubjectScore_graph_data(BaseModel):
+    user_id: int
+    average_score: List[float]
+    subject: List[str]

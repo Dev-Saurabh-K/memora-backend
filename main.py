@@ -13,7 +13,7 @@ from src.schemas.User import UserCreate, UserResponse, UserUpdateRequest
 from src.schemas.Chat import ChatMessage, ChatMessageResponse, RetrieveChatResponse
 from src.schemas.Topic import AskTopic, TopicResponse, HistoryResponse
 from src.schemas.Notes import NotesRequest, NotesResponse, SubnotesRequest
-from src.schemas.Quiz import QuizSubmitRequest, QuizSubmitResponse, QuizPerformanceResponse
+from src.schemas.Quiz import QuizSubmitRequest, QuizSubmitResponse, QuizPerformanceResponse, SubjectScore_graph_data
 from src.Services.microtasks import extractTextFromPDF
 from src.Services.GeneratePlan import generateTopic
 from src.Services.NotesGenerator import notes_generator
@@ -27,6 +27,7 @@ from typing import List
 import json
 import time
 import json
+from collections import defaultdict
 
 app = FastAPI()
 
@@ -459,9 +460,35 @@ def get_score(topic_id: int, db:Session=Depends(get_db), current_user: User=Depe
     # return quiz_data
 
 @app.get("/api/analytics/subjectscore")
-def get_subjectScore_graph_data(db:Session=Depends(get_db), current_user: User= Depends(get_current_user)):
-    quiz = db.query(QuizPerformance).filter(QuizPerformance.user_id==current_user.id, QuizPerformance.attended==True).all()
-    subjects = db.query(Topics.subject).distinct().all()
-    print(subjects)
-    return [row[0] for row in subjects]
+def get_subjectScore_graph_data(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    quizzes = (
+        db.query(QuizPerformance)
+        .filter(
+            QuizPerformance.user_id == current_user.id,
+            QuizPerformance.attended == True
+        )
+        .all()
+    )
+
+    subject_scores = defaultdict(list)
+
+    # Group scores by subject
+    for quiz in quizzes:
+        subject_scores[quiz.subject].append(quiz.score)
+
+    subject_array = []
+    average_score_array = []
+
+    # Calculate average for each subject
+    for subject, scores in subject_scores.items():
+        subject_array.append(subject)
+        average_score_array.append(sum(scores) / len(scores))
+
+    return {
+        "subjects": subject_array,
+        "average_scores": average_score_array
+    }
 
