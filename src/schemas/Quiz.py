@@ -14,3 +14,11 @@ class QuizSubmitResponse(BaseModel):
     answer: str
     chosen_answer: Optional[str]
     options: List[str]
+
+class QuizPerformanceResponse(BaseModel):
+    id: int
+    user_id: int
+    topic_id: int
+    score: int
+    subject: str
+    attended: bool

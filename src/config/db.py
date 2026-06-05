@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Text, JSON, func
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Text, JSON, func, Boolean
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
 # from datetime import datetime
@@ -60,6 +60,15 @@ class QuizQuestion(Base):
     answer = Column(String)
     chosen_answer = Column(String)
     options = Column(JSON)
+
+class QuizPerformance(Base):
+    __tablename__="quizperformance"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    topic_id = Column(Integer, ForeignKey("topics.id"))
+    score = Column(Integer)
+    subject = Column(String)
+    attended = Column(Boolean)
     
 Base.metadata.create_all(bind=engine)
 

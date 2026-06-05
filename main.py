@@ -8,12 +8,12 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 # from src.Services.ChatService import chat
-from src.config.db import get_db, User, Chat, Topics, SubNotes, QuizQuestion
+from src.config.db import get_db, User, Chat, Topics, SubNotes, QuizQuestion, QuizPerformance
 from src.schemas.User import UserCreate, UserResponse, UserUpdateRequest
 from src.schemas.Chat import ChatMessage, ChatMessageResponse, RetrieveChatResponse
 from src.schemas.Topic import AskTopic, TopicResponse, HistoryResponse
 from src.schemas.Notes import NotesRequest, NotesResponse, SubnotesRequest
-from src.schemas.Quiz import QuizSubmitRequest, QuizSubmitResponse
+from src.schemas.Quiz import QuizSubmitRequest, QuizSubmitResponse, QuizPerformanceResponse
 from src.Services.microtasks import extractTextFromPDF
 from src.Services.GeneratePlan import generateTopic
 from src.Services.NotesGenerator import notes_generator
@@ -49,6 +49,7 @@ app.add_middleware(
         "http://localhost:4173",
         "https://private-sigma-mauve.vercel.app",
         "https://hacksphere-i01cihcir-saurabh-kumars-projects-ee8f1350.vercel.app/",
+        "https://hacksphere1.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -410,3 +411,55 @@ def submit_quiz(request: QuizSubmitRequest, db:Session = Depends(get_db), curren
 
     db.commit()
     return db.query(QuizQuestion).filter(QuizQuestion.batch_id == request.batch_id).all()
+
+
+@app.get("/api/quiz/score",response_model=QuizPerformanceResponse)
+def get_score(topic_id: int, db:Session=Depends(get_db), current_user: User=Depends(get_current_user)):
+    score = 0
+    quiz_data = db.query(QuizQuestion).filter(QuizQuestion.user_id==current_user.id, QuizQuestion.topic_id==topic_id).all()
+
+    if not quiz_data:
+        raise HTTPException(status_code=404,detail="Quiz question not generated yet!")
+
+    attended = False
+
+    for question in quiz_data:
+        if question.chosen_answer == question.answer:
+            score += 1
+
+        if question.chosen_answer is not None:
+            attended = True
+    
+
+    subject = db.query(Topics).filter(Topics.id==topic_id, Topics.user_id==current_user.id).first().subject
+    existing_data = db.query(QuizPerformance).filter(
+    QuizPerformance.topic_id == topic_id,
+    QuizPerformance.user_id == current_user.id,
+    ).first()
+    if existing_data:
+        existing_data.attended=attended
+        existing_data.score=score
+        db.commit()
+        return existing_data
+    
+
+
+    data = QuizPerformance(user_id=current_user.id, topic_id=quiz_data[0].topic_id, score=score, subject=subject, attended=attended)
+
+    db.add(data)
+    db.commit()
+    db.refresh(data)
+
+    return data
+
+    # return response
+    # return score
+    # return quiz_data
+
+@app.get("/api/analytics/subjectscore")
+def get_subjectScore_graph_data(db:Session=Depends(get_db), current_user: User= Depends(get_current_user)):
+    quiz = db.query(QuizPerformance).filter(QuizPerformance.user_id==current_user.id, QuizPerformance.attended==True).all()
+    subjects = db.query(Topics.subject).distinct().all()
+    print(subjects)
+    return [row[0] for row in subjects]
+
