@@ -1,3 +1,5 @@
+nvidia api key integration for later
+
 step 0-(run one by one in terminal, if error occur run that command again)
 commands-
 
